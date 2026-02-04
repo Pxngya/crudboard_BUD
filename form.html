@@ -14,35 +14,18 @@
         .main-content { margin-left: 80px; padding: 40px; }
         .tab-btn.active { background-color: #E9E4F5; color: #5A21B6; font-weight: bold; }
         
-        /* Quill Style */
         .ql-container { height: 400px; background: white; border-radius: 0 0 10px 10px; font-family: 'Kanit', sans-serif; font-size: 16px; }
         .ql-toolbar { background: #f3f3f3; border-radius: 10px 10px 0 0; }
         
-        /* แก้บั๊ก Dropdown Size ให้แสดงตัวเลขชัดเจน */
+        /* แก้บั๊ก Dropdown Size */
         .ql-snow .ql-picker.ql-size .ql-picker-label::before,
-        .ql-snow .ql-picker.ql-size .ql-picker-item::before {
-            content: attr(data-value) !important;
-        }
-        /* ถ้าไม่มีค่า (Normal) ให้โชว์ว่า 16px (Default) */
-        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16px"]::before,
-        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16px"]::before {
-            content: '16px (Normal)' !important;
-        }
+        .ql-snow .ql-picker.ql-size .ql-picker-item::before { content: attr(data-value) !important; }
         .ql-snow .ql-picker.ql-size .ql-picker-label:not([data-value])::before,
-        .ql-snow .ql-picker.ql-size .ql-picker-item:not([data-value])::before {
-            content: '16px (Normal)' !important;
-        }
+        .ql-snow .ql-picker.ql-size .ql-picker-item:not([data-value])::before { content: '16px (Normal)' !important; }
 
         #htmlSource {
-            width: 100%;
-            height: 400px;
-            background: #1e1e1e;
-            color: #d4d4d4;
-            font-family: monospace;
-            padding: 1rem;
-            border-radius: 0 0 10px 10px;
-            display: none;
-            resize: none;
+            width: 100%; height: 400px; background: #1e1e1e; color: #d4d4d4;
+            font-family: monospace; padding: 1rem; border-radius: 0 0 10px 10px; display: none; resize: none;
         }
     </style>
 </head>
@@ -108,6 +91,7 @@
                         <button id="submitBtn" onclick="submitForm()" class="w-full bg-[#5A21B6] text-white py-3 rounded-lg text-xl font-bold hover:bg-purple-800 transition shadow-lg mt-4">
                             Save Package
                         </button>
+                        <p id="uploadStatus" class="text-center text-sm mt-2 text-gray-500 font-bold"></p>
                     </div>
                 </div>
             </div>
@@ -135,7 +119,7 @@
                             class="w-full h-48 bg-[#E5E5E5] flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-300 transition overflow-hidden relative border-2 border-dashed border-gray-400">
                         <div id="uploadPlaceholder" class="text-center">
                             <i class="fa-solid fa-image text-gray-500 text-4xl"></i>
-                            <p class="text-gray-500 text-sm mt-2">Click to upload image</p>
+                            <p class="text-gray-500 text-sm mt-2">Click to upload image (High Quality Optimized)</p>
                         </div>
                         <img id="previewImg" class="absolute h-full object-contain hidden">
                     </div>
@@ -161,26 +145,22 @@
         const token = localStorage.getItem('token');
         if (!token) window.location.href = 'index.html';
 
-        // ตั้งค่าขนาดตัวอักษรเป็น Pixel ตามที่ขอ
         var Size = Quill.import('attributors/style/size');
         Size.whitelist = ['10px', '12px', '14px', '16px', '18px', '20px', '24px', '30px', '36px', '48px'];
         Quill.register(Size, true);
 
         var toolbarOptions = [
-            [{ 'header': [1, 2, 3, 4, 5, 6, false] }], // ยังคง Heading ไว้
-            [{ 'size': Size.whitelist }], // ตัวเลือกขนาดตัวอักษรกลับมาแล้ว
+            [{ 'header': [1, 2, 3, 4, 5, 6, false] }], 
+            [{ 'size': Size.whitelist }],
             [{ 'font': [] }],
             [{ 'color': [] }, { 'background': [] }],
             ['bold', 'italic', 'underline', 'strike'],
             [{ 'align': [] }],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }], // รายการ
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }], 
             ['link', 'image', 'clean']
         ];
 
-        var quill = new Quill('#editor', {
-            theme: 'snow',
-            modules: { toolbar: toolbarOptions }
-        });
+        var quill = new Quill('#editor', { theme: 'snow', modules: { toolbar: toolbarOptions } });
 
         let isSourceMode = false;
         function toggleSource() {
@@ -199,9 +179,7 @@
         }
 
         function syncSourceToEditor() {
-            if (isSourceMode) {
-                quill.root.innerHTML = document.getElementById('htmlSource').value;
-            }
+            if (isSourceMode) quill.root.innerHTML = document.getElementById('htmlSource').value;
         }
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -212,6 +190,52 @@
             'EN': { title: '', excerpt: '', package_detail: '', cover_image: '' },
             'CN': { title: '', excerpt: '', package_detail: '', cover_image: '' }
         };
+
+        // --- เพิ่มฟังก์ชันย่อรูป (Smart Optimize: High Quality) ---
+        function compressImage(file, callback) {
+            const maxWidth = 2500; // ปรับเพิ่มให้เป็น 2500px (ความชัดระดับ 2K-4K)
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = event => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    if (width > maxWidth) {
+                        height *= maxWidth / width;
+                        width = maxWidth;
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // ปรับ Quality เป็น 0.85 (ชัดตาแตก แต่ไฟล์เล็กลงครึ่งนึง)
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    callback(dataUrl);
+                }
+            }
+        }
+        // ------------------------------------------
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file && currentTab !== 'info') {
+                document.getElementById('uploadPlaceholder').innerText = "Processing High Quality Image...";
+                
+                compressImage(file, (base64) => {
+                    languageData[currentTab].cover_image = base64;
+                    document.getElementById('previewImg').src = base64;
+                    document.getElementById('previewImg').classList.remove('hidden');
+                    document.getElementById('uploadPlaceholder').classList.add('hidden');
+                    document.getElementById('uploadPlaceholder').innerText = "Click to upload image"; 
+                });
+            }
+        }
 
         async function loadEditData() {
             if (!editId) return;
@@ -303,22 +327,12 @@
             }
         }
 
-        function handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (file && currentTab !== 'info') {
-                const reader = new FileReader();
-                reader.onloadend = function() {
-                    languageData[currentTab].cover_image = reader.result;
-                    document.getElementById('previewImg').src = reader.result;
-                    document.getElementById('previewImg').classList.remove('hidden');
-                    document.getElementById('uploadPlaceholder').classList.add('hidden');
-                }
-                reader.readAsDataURL(file);
-            }
-        }
-
         async function submitForm() {
             if (currentTab !== 'info') saveLanguageToMemory(currentTab);
+
+            document.getElementById('uploadStatus').innerText = "Uploading... (This might take a moment)";
+            document.getElementById('uploadStatus').className = "text-center text-sm mt-2 text-blue-600 font-bold";
+
             const payload = {
                 package_id: document.getElementById('pkg_id').value,
                 package_name: document.getElementById('pkg_name').value,
@@ -328,23 +342,45 @@
                 end_date: document.getElementById('end_date').value + "T23:59:59",
                 languages: languageData
             };
+
             const method = editId ? 'PUT' : 'POST';
             const url = editId ? `/api/packages/${editId}` : '/api/packages';
+
             try {
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify(payload)
                 });
+
                 if (response.ok) {
                     alert("Saved Successfully!");
                     window.location.href = 'dashboard.html';
                 } else {
-                    const err = await response.json();
-                    alert("Error: " + err.detail);
+                    // --- แก้ไข Error Handling ---
+                    // ถ้า Server ตอบกลับเป็น 413 (File Too Large) มันมักจะไม่ใช่ JSON
+                    if (response.status === 413) {
+                         alert("Upload Failed: File is TOO LARGE for Vercel (Limit 4.5MB). \nSystem has already tried to optimize it.");
+                    } else {
+                        // พยายามอ่าน Error แบบ JSON ก่อน ถ้าไม่ได้ให้อ่านแบบ Text
+                        try {
+                            const err = await response.json();
+                            alert("Error: " + (err.detail || "Unknown Error"));
+                        } catch (e) {
+                            const text = await response.text();
+                            alert("Server Error: " + response.statusText);
+                        }
+                    }
+                    document.getElementById('uploadStatus').innerText = "Upload Failed";
+                    document.getElementById('uploadStatus').className = "text-center text-sm mt-2 text-red-600 font-bold";
                 }
-            } catch (error) { console.error(error); alert("Connection Error"); }
+            } catch (error) { 
+                console.error(error); 
+                document.getElementById('uploadStatus').innerText = "Connection Error";
+                alert("Connection Error. Please check your internet or try a smaller image."); 
+            }
         }
+
         loadEditData();
     </script>
 </body>
