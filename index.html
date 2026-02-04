@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRUD Board - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Kanit', sans-serif; }
+        .crud-logo { color: #D8469F; font-size: 80px; font-weight: 800; text-shadow: 2px 2px 4px rgba(0,0,0,0.1); }
+        .board-text { color: #5D3A29; font-size: 40px; margin-top: -25px; font-weight: 700; }
+    </style>
+</head>
+<body class="bg-[#5A21B6] h-screen flex items-center justify-center">
+
+    <div class="bg-white rounded-[30px] p-12 w-[600px] shadow-2xl flex flex-col items-center">
+        <div class="text-center mb-8">
+            <h1 class="crud-logo italic">CRUD</h1>
+            <p class="board-text">Board</p>
+        </div>
+
+        <div class="bg-[#E9E4F5] text-[#5A21B6] px-6 py-1 rounded-full mb-8 font-medium">
+            BUD Package
+        </div>
+
+        <div class="w-full space-y-4">
+            <input type="text" id="username" placeholder="USERNAME" value="admin"
+                class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 uppercase text-sm tracking-widest">
+            
+            <input type="password" id="password" placeholder="PASSWORD" value="password123"
+                class="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 uppercase text-sm tracking-widest">
+            
+            <button onclick="handleLogin()" class="w-full bg-[#5A21B6] text-white py-3 rounded-xl mt-8 font-bold text-lg hover:bg-purple-800 transition duration-300">
+                SIGN IN
+            </button>
+            
+            <p id="error-msg" class="text-red-500 text-center mt-2 hidden"></p>
+        </div>
+    </div>
+
+    <script>
+        async function handleLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('error-msg');
+
+            // เตรียมข้อมูลส่งไป Backend
+            const formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            try {
+                // ยิง API ไปที่ Backend
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // บันทึก Token เก็บไว้ใช้งาน
+                    localStorage.setItem('token', data.access_token);
+                    // เปลี่ยนหน้าไป Dashboard
+                    window.location.href = 'dashboard.html';
+                } else {
+                    errorMsg.innerText = "Username หรือ Password ไม่ถูกต้อง";
+                    errorMsg.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                errorMsg.innerText = "ไม่สามารถเชื่อมต่อ Server ได้";
+                errorMsg.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
