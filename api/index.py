@@ -14,7 +14,7 @@ app = FastAPI(title="CRUD Board API", root_path="/api")
 # --- Config ---
 MONGODB_URI = "mongodb+srv://yos_db_user:00kJUBG53vLFZIqH@cluster0.jivkpdj.mongodb.net/?appName=Cluster0"
 DATABASE_NAME = "CRUD_Board"
-SECRET_KEY = "supersecretkey123"
+SECRET_KEY = "my_super_secret_key_that_is_very_long_and_secure_for_vercel_deploy"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "password123"
 ALGORITHM = "HS256"
