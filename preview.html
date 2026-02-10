@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Package Preview - Hospital Style</title>
+    <title>Package Preview</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { font-family: 'Sarabun', sans-serif; background-color: #f8f9fa; }
+        body { font-family: 'Sarabun', sans-serif; background-color: #f8f9fa; transition: background-color 0.3s; }
+        
+        /* สไตล์กระดาษ A4 ปกติ */
         .a4-paper { 
             width: 210mm; 
             min-height: 297mm; 
@@ -20,6 +22,26 @@
             display: flex;
             flex-direction: column;
         }
+
+        /* --- CLEAN MODE (สำหรับส่งลูกค้า) --- */
+        body.clean-mode { 
+            background-color: #ffffff !important; /* พื้นหลังขาวล้วน */
+        }
+        body.clean-mode .a4-paper { 
+            box-shadow: none !important; /* ลบเงา */
+            border: none !important;     /* ลบขอบ */
+            margin: 0 auto !important;   /* จัดกลางแต่ไม่เว้นบนล่างเยอะ */
+            /* เนื้อหายังอยู่ที่เดิมเพราะ padding 50px 32px ยังทำงานอยู่ */
+        }
+        body.clean-mode .no-print { display: none !important; }
+
+        /* Print Style */
+        @media print {
+            .no-print { display: none !important; }
+            body { background-color: white; }
+            .a4-paper { box-shadow: none; margin: 0; padding: 0; width: 100%; }
+        }
+
         .flyer-content ul { list-style-type: disc; margin-left: 20px; color: #4a5568; }
         .flyer-content ol { list-style-type: decimal; margin-left: 20px; color: #4a5568; }
         .flyer-content { font-size: 16px; line-height: 1.6; }
@@ -34,33 +56,44 @@
             min-width: 250px;
         }
 
-        @media print {
-            .no-print { display: none !important; }
-            body { background-color: white; }
-            .a4-paper { box-shadow: none; margin: 0; }
+        /* Loading Spinner */
+        #loadingOverlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: white; z-index: 100;
+            display: flex; justify-content: center; items-align: center;
+            flex-direction: column; align-items: center;
         }
-        
-        body.clean-mode .no-print { display: none !important; }
-        body.clean-mode { background-color: #e5e5e5; }
-        body.clean-mode .a4-paper { margin-top: 0; margin-bottom: 0; }
+        .spinner {
+            border: 4px solid #f3f3f3; border-top: 4px solid #dc2626;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; mb-4;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div class="fixed top-4 right-4 bg-white p-2 rounded shadow flex gap-2 z-50 no-print items-center">
+    <div id="loadingOverlay">
+        <div class="spinner mb-4"></div>
+        <p class="text-gray-500 font-bold">Loading Package...</p>
+    </div>
+
+    <div class="fixed top-4 right-4 bg-white p-2 rounded shadow flex gap-2 z-50 no-print items-center border border-gray-200">
         <span class="text-sm font-bold text-gray-600 mr-2">Preview:</span>
         <div id="langContainer" class="flex gap-2"></div>
         <div class="w-px h-6 bg-gray-300 mx-2"></div>
-        <button onclick="copyCleanLink()" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition flex items-center gap-2">
+        <button onclick="copyCleanLink()" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition flex items-center gap-2 shadow-sm">
             <i class="fa-solid fa-link"></i> Copy Link
         </button>
     </div>
 
-    <div class="a4-paper" id="contentArea">
+    <div class="a4-paper hidden" id="contentArea">
+        
         <div class="flex justify-between items-start mb-8">
             <div class="w-2/3 pr-8">
                 <div id="pkgDetail" class="text-gray-700 flyer-content"></div>
             </div>
+
             <div class="w-1/3 flex flex-col items-end">
                 <p class="text-gray-500 text-sm line-through mb-2 font-medium" id="fullPriceDisplay"></p>
                 <div class="price-box">
@@ -72,10 +105,11 @@
                 </div>
             </div>
         </div>
+
         <div class="flex-grow relative mt-8">
             <img id="pkgImage" class="w-full h-auto object-contain rounded-lg shadow-sm">
-            <div id="noImage" class="hidden w-full h-64 bg-gray-100 flex items-center justify-center text-gray-400 rounded-lg">No Image for this language</div>
-        </div>
+            </div>
+
         <div class="mt-auto pt-8"></div>
     </div>
 
@@ -88,6 +122,7 @@
         let packageData = {};
         let currentLang = urlLang || 'TH';
 
+        // ตั้งค่า Clean Mode ทันที
         if (isClean) {
             document.body.classList.add('clean-mode');
         }
@@ -95,12 +130,24 @@
         async function loadData() {
             if (!packageId) return;
             try {
+                // ใช้ /api เพื่อความถูกต้องบน Vercel
                 const response = await fetch(`/api/packages/${packageId}`);
                 if (!response.ok) throw new Error("Not found");
+                
                 packageData = await response.json();
+                
                 setupLangButtons();
                 renderPage(currentLang);
-            } catch (err) { alert("Error loading data"); }
+
+                // ข้อมูลมาแล้ว -> ปิด Loading, โชว์กระดาษทันที
+                document.getElementById('loadingOverlay').style.display = 'none';
+                document.getElementById('contentArea').classList.remove('hidden');
+
+            } catch (err) { 
+                document.querySelector('#loadingOverlay p').innerText = "Error: Data not found";
+                document.querySelector('#loadingOverlay p').classList.add('text-red-500');
+                document.querySelector('.spinner').style.display = 'none';
+            }
         }
 
         function setupLangButtons() {
@@ -128,23 +175,26 @@
 
         function renderPage(lang) {
             const content = packageData.languages[lang] || {};
-            document.getElementById('pkgDetail').innerHTML = content.package_detail || "<p>No detail available.</p>";
-            const img = document.getElementById('pkgImage');
-            const noImg = document.getElementById('noImage');
-            if (content.cover_image) {
-                img.src = content.cover_image;
-                img.classList.remove('hidden');
-                noImg.classList.add('hidden');
-            } else {
-                img.classList.add('hidden');
-                noImg.classList.remove('hidden');
-            }
+            
+            // Render Text
+            document.getElementById('pkgDetail').innerHTML = content.package_detail || "";
+            
+            // Render Price
             const salePrice = packageData.sale_price ? packageData.sale_price.toLocaleString() : "0";
             document.getElementById('salePriceDisplay').innerText = salePrice;
             if (packageData.full_price > 0) {
                 document.getElementById('fullPriceDisplay').innerText = "ปกติ " + packageData.full_price.toLocaleString() + " บาท";
             } else {
                 document.getElementById('fullPriceDisplay').innerText = "";
+            }
+
+            // Render Image (ทำแบบ Asynchronous ไม่ต้องรอ)
+            const img = document.getElementById('pkgImage');
+            if (content.cover_image) {
+                img.src = content.cover_image;
+                img.classList.remove('hidden');
+            } else {
+                img.classList.add('hidden');
             }
         }
 
@@ -154,12 +204,11 @@
                 const btn = document.querySelector('button[onclick="copyCleanLink()"]');
                 const originalText = btn.innerHTML;
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-                btn.classList.remove('bg-blue-600');
-                btn.classList.add('bg-green-600');
+                btn.className = "px-3 py-1 bg-green-600 text-white rounded text-sm transition flex items-center gap-2 shadow-sm";
+                
                 setTimeout(() => {
                     btn.innerHTML = originalText;
-                    btn.classList.add('bg-blue-600');
-                    btn.classList.remove('bg-green-600');
+                    btn.className = "px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition flex items-center gap-2 shadow-sm";
                 }, 2000);
             });
         }
